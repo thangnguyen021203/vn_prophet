@@ -1,0 +1,118 @@
+x-airflow-common: &airflow-common
+  # image: apache/airflow:2.9.1
+  build: ./airflow
+  user: "${AIRFLOW_UID}:0" # [QUAN TRỌNG] Fix lỗi permission trên Linux/WSL
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${METADATA_USER}:${METADATA_PASSWORD}@postgres-airflow/${METADATA_DB}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+    MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    BUCKET_NAME: ${BUCKET_NAME}
+    WAREHOUSE_HOST: postgres-warehouse
+    WAREHOUSE_PORT: ${WAREHOUSE_PORT}
+    WAREHOUSE_DB: ${WAREHOUSE_DB}
+    WAREHOUSE_USER: ${WAREHOUSE_USER}
+    WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD}
+    SELENIUM_URL: http://chrome:4444/wd/hub
+    PYTHONPATH: /opt/airflow
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./etl/scraper:/opt/airflow/scraper
+    - ./etl/parser:/opt/airflow/parser
+  depends_on:
+    postgres-airflow:
+      condition: service_healthy
+
+x-postgres-common: &postgres-common
+  image: postgres:15
+  healthcheck:
+    test: ["CMD", "pg_isready", "-U", "airflow"] 
+    interval: 10s
+    retries: 5
+    start_period: 5s
+
+services:
+  # 1. WAREHOUSE DATABASE (Kho chứa dữ liệu nghiệp vụ)
+  postgres-warehouse:
+    <<: *postgres-common
+    environment:
+      POSTGRES_USER: ${WAREHOUSE_USER}
+      POSTGRES_PASSWORD: ${WAREHOUSE_PASSWORD}
+      POSTGRES_DB: ${WAREHOUSE_DB}
+    volumes:
+      - ./data/warehouse_storage:/var/lib/postgresql/data
+      - ./sql/init_warehouse.sql:/docker-entrypoint-initdb.d/init_db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${WAREHOUSE_USER} -d ${WAREHOUSE_DB}"]
+      interval: 10s
+      retries: 5
+
+  # 2. METADATA AIRFLOW DATABASE (Database quản lý của Airflow)
+  postgres-airflow:
+    <<: *postgres-common
+    environment:
+      POSTGRES_USER: ${METADATA_USER}
+      POSTGRES_PASSWORD: ${METADATA_PASSWORD}
+      POSTGRES_DB: ${METADATA_DB}
+    volumes:
+      - ./data/airflow_metadata_storage:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${METADATA_USER} -d ${METADATA_DB}"]
+      interval: 10s
+      retries: 5
+
+  # 3. AIRFLOW INIT (Chạy 1 lần để tạo bảng)
+  airflow-init:
+    <<: *airflow-common
+    # entrypoint: /bin/bash
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true' # Biến môi trường ép Airflow tự chạy migrate
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${METADATA_USER}
+      _AIRFLOW_WWW_USER_PASSWORD: ${METADATA_PASSWORD}
+      _AIRFLOW_WWW_USER_ROLE: Admin
+      _AIRFLOW_WWW_USER_EMAIL: admin@proptech.com
+    command: bash -c "airflow db migrate && airflow users create --username ${METADATA_USER} --password ${METADATA_PASSWORD} --firstname Junior --lastname Engineer --role Admin --email admin@proptech.com"
+    # command: ["-c", "airflow version"]
+  # 4. AIRFLOW WEBSERVER
+  airflow-webserver:
+    <<: *airflow-common
+    command: bash -c "airflow scheduler & airflow webserver"
+      # - bash -c "airflow db migrate && airflow users create --username admin --password admin --firstname Junior --lastname Engineer --role Admin --email admin@proptech.com"
+    ports:
+      - "8080:8080" # Đổi lại cổng chuẩn 8080 cho dễ nhớ
+    depends_on:
+      postgres-airflow:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # 5. MINIO
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+
+  # 6. SELENIUM
+  chrome:
+    image: selenium/standalone-chrome
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+    shm_size: "2gb"

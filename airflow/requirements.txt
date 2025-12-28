@@ -1,0 +1,6 @@
+apache-airflow-providers-postgres
+psycopg2-binary
+selenium==4.15.2
+minio==7.2.0
+beautifulsoup4==4.12.2
+lxml

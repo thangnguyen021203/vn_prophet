@@ -1,0 +1,16 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment variables
+.env
+
+# Logs and Data (Không bao giờ commit dữ liệu lên Git)
+airflow/logs/
+data/
+logs/
+
+# IDE settings
+.vscode/
+.idea/
