@@ -1,0 +1,13 @@
+1. Null attributes in dimensions:
+-> recommend substituing a descriptive string, such as Unknown or Not Applicable in place of the null value
+? because different databases handle grouping and constraining on nulls inconsistenly
+[NOT YET]
+
+2. Date Table
+-  has many attributes describing characteristics such as week number, month name, fiscal period, and national holiday indicator
+-> primary key of date dimension can be more meaningful, such as an integer representing YYYYMMDD, instead of a sequentially-assigned surrogate key
+? to facilitate partitioning
+-> when precision is needed, a separate date/time stamp can be added to the fact table
+? for part grouping or shift number, then you would add a seperate time-of-day dimension foreign key to the fact table
+
+3. Implement SCD5
