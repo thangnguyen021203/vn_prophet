@@ -32,5 +32,7 @@ def main():
     #3. Run Template Method
     alonhadat_scraper.run(start_page=1, end_page=3)
     batdongsan_scraper.run(start_page=1, end_page=3)
+    #4. Dong trinh duyet
+    browser_service.close()
 if __name__ == "__main__":
     main()

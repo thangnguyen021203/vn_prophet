@@ -48,6 +48,6 @@ class BaseScraper(ABC):
                 time.sleep(sleep_time)
         except Exception as e:
             print(f"Error: {e}")
-        finally:
-            self.browser.close()
+        # finally:
+        #     self.browser.close()
     
