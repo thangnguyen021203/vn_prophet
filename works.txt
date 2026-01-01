@@ -10,4 +10,4 @@
 -> when precision is needed, a separate date/time stamp can be added to the fact table
 ? for part grouping or shift number, then you would add a seperate time-of-day dimension foreign key to the fact table
 
-3. Implement SCD5
+3. Implement SCD

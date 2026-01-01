@@ -1,5 +1,6 @@
 from scraper.src.services import BrowserService, MinIOService
 from scraper.src.alonhadat import AloNhaDatScraper
+from scraper.src.batdongsan import BatDongSanScraper
 import os
 from dotenv import load_dotenv
 
@@ -26,10 +27,10 @@ def main():
     )
     
     #2. Khoi tao Scraper cu the
-    scraper = AloNhaDatScraper(browser=browser_service, storage=minio_service)
-    
+    alonhadat_scraper = AloNhaDatScraper(browser=browser_service, storage=minio_service)
+    batdongsan_scraper = BatDongSanScraper(browser=browser_service, storage=minio_service)
     #3. Run Template Method
-    scraper.run(start_page=1, end_page=3)
-
+    alonhadat_scraper.run(start_page=1, end_page=3)
+    batdongsan_scraper.run(start_page=1, end_page=3)
 if __name__ == "__main__":
     main()
